@@ -1,11 +1,13 @@
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
-    window::{CompositeAlphaMode, WindowMode, WindowTheme},
+    app::App,
+    color::Color,
+    prelude::{default, ClearColor, Msaa, PluginGroup, Window},
+    window::{CompositeAlphaMode, WindowMode, WindowPlugin, WindowTheme},
     winit::WinitSettings,
+    DefaultPlugins,
 };
-use lark::UiPlugin;
 
+use lark::UiPlugin;
 fn main() {
     let mut app = App::new();
     // lark plugin
@@ -13,15 +15,15 @@ fn main() {
         primary_window: Some(Window {
             mode: WindowMode::Windowed,
             decorations: false,
-            resolution: (1280., 720.).into(),
-            skip_taskbar: true,
+            resolution: (1024., 720.).into(),
+            focused: true,
             transparent: true,
+            visible: true,
             #[cfg(target_os = "macos")]
             composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
             #[cfg(target_os = "linux")]
             composite_alpha_mode: CompositeAlphaMode::PreMultiplied,
             window_theme: Some(WindowTheme::Dark),
-            position: WindowPosition::At(IVec2::new(1900, 100)), //TODO: set last position
             ..default()
         }),
         ..default()
@@ -30,10 +32,7 @@ fn main() {
     app.insert_resource(WinitSettings::desktop_app());
     app.add_plugins(bevy_svg::prelude::SvgPlugin); // set svg
     app.insert_resource(ClearColor(Color::NONE));
-    // 多重采样抗锯齿
     app.insert_resource(Msaa::Sample4);
     app.add_plugins(UiPlugin);
-    app.add_plugins(LogDiagnosticsPlugin::default());
-    app.add_plugins(FrameTimeDiagnosticsPlugin);
     app.run();
 }

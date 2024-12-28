@@ -1,37 +1,33 @@
 use bevy::prelude::ResMut;
-use bevy_egui::egui::{self, Frame};
+use bevy_egui::egui::{self, FontFamily, FontId, Frame, RichText};
+use chrono::Local;
 
-use crate::resources::UiState;
+use crate::{resources::UiState, ChatMainView, ChatMessage, MessageType};
 
 pub fn chat_main_ui(
     ctx: &egui::Context,
     ui_state: &mut ResMut<UiState>,
 ) -> egui::InnerResponse<()> {
-    let style = ctx.style();
-    egui::SidePanel::left("chat_main_ui")
-        .frame(Frame {
-            rounding: egui::Rounding {
-                nw: 0.0,  // 左上
-                ne: 12.0, // 右上
-                sw: 0.0,  // 左下
-                se: 12.0, // 右下
-            },
-            inner_margin: egui::Margin {
-                left: 0.,
-                right: 12.,
-                top: 12.,
-                bottom: 12.,
-            },
-            shadow: style.visuals.window_shadow,
-            fill: egui::Color32::from_rgba_premultiplied(0, 0, 0, 255),
-            ..Default::default()
-        })
-        .resizable(true)
-        .default_width(1000.0)
-        .width_range(1000.0..=1280.0)
-        .min_width(600.)
-        .show(ctx, |ui| {
-            ui.label("Main resizeable panel");
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        })
+    let view = ChatMainView::new();
+    view.render(ctx, ui_state)
+}
+fn get_avatar_color(text: &str) -> egui::Color32 {
+    const COLORS: &[egui::Color32] = &[
+        egui::Color32::from_rgb(103, 58, 183), // Deep Purple
+        egui::Color32::from_rgb(63, 81, 181),  // Indigo
+        egui::Color32::from_rgb(33, 150, 243), // Blue
+        egui::Color32::from_rgb(3, 169, 244),  // Light Blue
+        egui::Color32::from_rgb(0, 188, 212),  // Cyan
+        egui::Color32::from_rgb(0, 150, 136),  // Teal
+        egui::Color32::from_rgb(76, 175, 80),  // Green
+        egui::Color32::from_rgb(244, 67, 54),  // Red
+        egui::Color32::from_rgb(233, 30, 99),  // Pink
+        egui::Color32::from_rgb(156, 39, 176), // Purple
+    ];
+
+    let index = text
+        .bytes()
+        .fold(0usize, |acc, b| acc.wrapping_add(b as usize))
+        % COLORS.len();
+    COLORS[index]
 }

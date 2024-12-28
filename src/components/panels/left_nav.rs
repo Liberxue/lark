@@ -1,7 +1,7 @@
 use super::{avatar, windows::windows_button};
 use crate::resources::UiState;
-use bevy::{prelude::ResMut, window::CursorIcon};
-use bevy_egui::egui::{self, CursorGrab};
+use bevy::prelude::ResMut;
+use bevy_egui::egui::{self};
 
 #[derive(Clone)]
 struct NavItem {
@@ -54,12 +54,12 @@ pub fn left_nav_ui(ctx: &egui::Context, ui_state: &mut ResMut<UiState>) -> egui:
                 },
                 NavItem {
                     icon: "\u{ebb4}",
-                    lable: "消息",
+                    lable: "消 息",
                     has_notification: false,
                 },
                 NavItem {
                     icon: "\u{ebb5}",
-                    lable: "日历", // icon 好像不合适， 人家lark 日历 icon 好像展示日期TODO。。
+                    lable: "日 历", // icon 好像不合适， 人家lark 日历 icon 好像展示日期TODO。。
                     has_notification: false,
                 },
                 NavItem {
@@ -110,15 +110,16 @@ fn render_nav_item(
 ) -> egui::Response {
     ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
     const ICON_SIZE: f32 = 20.0;
-    const TEXT_SIZE: f32 = 8.0;
+    const TEXT_SIZE: f32 = 10.0;
     let color = if is_selected {
-        egui::Color32::BLUE
+        egui::Color32::from_rgba_premultiplied(22, 119, 255, 1)
     } else {
         egui::Color32::WHITE
     };
     let icon_text = egui::RichText::new(item.icon)
         .font(egui::FontId::proportional(ICON_SIZE))
-        .color(color);
+        .color(color)
+        .strong();
     let label_text = egui::RichText::new(item.lable)
         .font(egui::FontId::proportional(TEXT_SIZE))
         .color(color);

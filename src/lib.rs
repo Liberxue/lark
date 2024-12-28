@@ -17,7 +17,6 @@ impl Plugin for UiPlugin {
         .init_resource::<OccupiedScreenSpace>()
         .init_resource::<AppState>()
         .add_systems(Startup, setup_ui)
-        // add splash ~~~
         .add_systems(
             Update,
             (

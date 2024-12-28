@@ -8,7 +8,7 @@ struct WindowConf {
     height: f32,
     position: egui::Pos2,
 }
-fn create_custom_window<'a>(
+pub fn create_custom_window<'a>(
     ctx: &egui::Context,
     title: &'a str,
     config: WindowConf,

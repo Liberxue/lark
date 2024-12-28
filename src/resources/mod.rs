@@ -1,5 +1,24 @@
+use crate::{Chat, ChatMessage, ChatType, MessageType, Notification};
+use std::collections::HashMap;
+
 use bevy::prelude::{Component, Resource};
 use bevy_egui::egui::Vec2;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChatTab {
+    Message,
+    Document,
+    Announcement,
+    Pin,
+    File,
+    Add,
+}
+
+impl Default for ChatTab {
+    fn default() -> Self {
+        Self::Message
+    }
+}
 
 #[derive(Resource)]
 pub struct UiState {
@@ -9,21 +28,64 @@ pub struct UiState {
     pub show_status_menu: bool,
     pub show_siderbar: bool,
     pub selected_siderbar_button: String,
-    //input
+    pub current_tab: ChatTab,
 
+    //chat main ui
+    pub current_message_type: MessageType,
+    pub input_text: String,
+    pub select_chat_id: String,
+    pub show_emoji_picker: bool,
+    pub show_pin_message: bool,
     // chat content
+    pub messages: Vec<ChatMessage>,
+    pub chats: Vec<Chat>,
+    pub notifications: Vec<Notification>,
+    pub unread_counts: HashMap<String, i32>,
 }
 
 impl Default for UiState {
     fn default() -> Self {
+        // 获取默认聊天室数据
+        let chat_data = ChatData::create_default_chat_rooms();
+        let mut chats = Vec::new();
+        let mut messages = Vec::new();
+        let mut unread_counts = HashMap::new();
+
+        // 从聊天室数据中提取需要的信息
+        for (_, room_data) in chat_data.iter() {
+            chats.push(room_data.chat.clone());
+            messages.extend(room_data.messages.clone());
+            unread_counts.insert(room_data.chat.id.clone(), room_data.unread_count);
+        }
+
         Self {
             nav_width: 50.0,
             selected_nav_index: 1,
             show_avatar_menu: false,
             show_status_menu: false,
             show_siderbar: false,
+            select_chat_id: "1".to_string(),
+            current_tab: ChatTab::Message,
             selected_siderbar_button: String::new(),
+            current_message_type: MessageType::Text,
+            input_text: String::new(),
+            show_emoji_picker: false,
+            show_pin_message: false,
+            messages, // 使用从聊天室数据中获取的消息
+            chats,    // 使用从聊天室数据中获取的聊天列表
+            notifications: vec![],
+            unread_counts, // 使用从聊天室数据中获取的未读计数
         }
+    }
+}
+
+impl UiState {
+    pub fn current_chat_name(&self) -> String {
+        self.chats
+            .iter()
+            .find(|c| c.id == self.select_chat_id)
+            .map(|c| c.name.clone())
+            .unwrap_or_default()
     }
 }
 // 定义导航页面枚举
@@ -85,6 +147,143 @@ pub struct SplashAnimation {
     pub end_pos: Vec2,
     pub progress: f32,
     pub duration: f32,
+}
+
+#[derive(Clone)]
+pub struct ChatRoomData {
+    pub chat: Chat,
+    pub messages: Vec<ChatMessage>,
+    pub unread_count: i32,
+}
+
+impl ChatRoomData {
+    pub fn new(chat: Chat, messages: Vec<ChatMessage>, unread_count: i32) -> Self {
+        Self {
+            chat,
+            messages,
+            unread_count,
+        }
+    }
+}
+
+pub struct ChatData {
+    pub chats: Vec<Chat>,
+    pub messages: Vec<ChatMessage>,
+    pub notifications: Vec<Notification>,
+    pub unread_counts: HashMap<String, i32>,
+}
+
+impl ChatData {
+    pub fn new() -> Self {
+        let mut data = Self::default();
+        data.init_default_data();
+        data
+    }
+
+    pub fn create_default_chat_rooms() -> HashMap<String, ChatRoomData> {
+        let mut rooms = HashMap::new();
+        rooms.insert(
+            "1".to_string(),
+            ChatRoomData::new(
+                Chat {
+                    id: "1".to_string(),
+                    name: "Rust Stack 交流群".to_string(),
+                    avatar: "R".to_string(),
+                    member_count: 850,
+                    last_message: Some("欢迎加入群聊".to_string()),
+                    chat_type: ChatType::Group,
+                    pin: true,
+                },
+                vec![
+                    ChatMessage {
+                        id: "1-1".to_string(),
+                        is_bot: false,
+                        chat_id: "1".to_string(),
+                        sender: "张鸣".to_string(),
+                        avatar: "鸣".to_string(),
+                        content: "我在尝试用Rust写一个飞书客户端".to_string(),
+                        timestamp: "2014.10.22 23:50:52".to_string(),
+                        message_type: MessageType::Text,
+                        reactions: Vec::new(),
+                    },
+                    // ... other messages
+                ],
+                3,
+            ),
+        );
+
+        rooms.insert(
+            "2".to_string(),
+            ChatRoomData::new(
+                Chat {
+                    id: "2".to_string(),
+                    name: "技术讨论群".to_string(),
+                    avatar: "技".to_string(),
+                    member_count: 225,
+                    last_message: Some("大家好".to_string()),
+                    chat_type: ChatType::Group,
+                    pin: false,
+                },
+                vec![ChatMessage {
+                    is_bot: false,
+                    id: "2-1".to_string(),
+                    chat_id: "2".to_string(),
+                    sender: "技术人员".to_string(),
+                    avatar: "技".to_string(),
+                    content: "技术讨论群的消息".to_string(),
+                    timestamp: "2024.03.09 10:00:00".to_string(),
+                    message_type: MessageType::Text,
+                    reactions: Vec::new(),
+                }],
+                1,
+            ),
+        );
+
+        rooms
+    }
+
+    fn init_default_data(&mut self) {
+        let rooms = Self::create_default_chat_rooms();
+        for (_, room_data) in rooms.iter() {
+            self.chats.push(room_data.chat.clone());
+            self.unread_counts
+                .insert(room_data.chat.id.clone(), room_data.unread_count);
+            self.messages.extend(room_data.messages.clone());
+        }
+    }
+
+    pub fn get_messages_for_chat(&self, chat_id: &str) -> Vec<ChatMessage> {
+        self.messages
+            .iter()
+            .filter(|msg| msg.chat_id == chat_id) // 需要在 ChatMessage 中添加 chat_id 字段
+            .cloned()
+            .collect()
+    }
+
+    pub fn add_message(&mut self, chat_id: &str, message: ChatMessage) {
+        self.messages.push(message);
+        if let Some(count) = self.unread_counts.get_mut(chat_id) {
+            *count += 1;
+        }
+    }
+
+    // 标记消息为已读
+    pub fn mark_as_read(&mut self, chat_id: &str) {
+        if let Some(count) = self.unread_counts.get_mut(chat_id) {
+            *count = 0;
+        }
+    }
+}
+
+impl Default for ChatData {
+    fn default() -> Self {
+        Self {
+            chats: Vec::new(),
+            messages: Vec::new(),
+            notifications: Vec::new(),
+            unread_counts: HashMap::new(),
+        }
+    }
 }
 
 mod setup;
