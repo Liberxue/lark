@@ -1,15 +1,19 @@
+mod chat_message;
 mod chat_model;
 mod chat_style;
 mod chat_view;
+mod constants;
 mod controller;
 mod event;
 mod message_renderer;
 mod model;
 mod view;
 
+pub use chat_message::*;
 pub use chat_model::*;
 pub use chat_style::*;
 pub use chat_view::*;
+pub use constants::AVATAR_COLORS;
 pub use controller::*;
 pub use event::*;
 pub use message_renderer::*;

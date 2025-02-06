@@ -1,13 +1,17 @@
 use std::collections::HashMap;
 
 use bevy::prelude::ResMut;
-use bevy_egui::egui::{self, Color32, FontFamily, FontId, Frame, RichText};
+use bevy_egui::egui::{self, Frame, RichText};
 
-use crate::{resources::UiState, ChatEvent, ChatFilter, ChatListController, ChatListView};
+use crate::{
+    resources::{NotificationTheme, UiState},
+    ChatEvent, ChatFilter, ChatListController, ChatListView,
+};
 
 pub fn left_chat_list_ui(
     ctx: &egui::Context,
     ui_state: &mut ResMut<UiState>,
+    theme: &mut ResMut<NotificationTheme>,
 ) -> egui::InnerResponse<()> {
     let unread_counts: HashMap<String, i32> = ui_state
         .unread_counts
@@ -17,26 +21,29 @@ pub fn left_chat_list_ui(
 
     let mut controller =
         ChatListController::new(&ui_state.chats, &ui_state.select_chat_id, &unread_counts);
-    let chats = ui_state.chats.clone();
 
+    let chats = ui_state.chats.clone();
+    let colors = theme.current_colors();
+    let frame = Frame {
+        fill: colors.background,
+        rounding: theme.style.rounding,
+        ..Default::default()
+    };
     egui::SidePanel::left("chat_list_panel")
         .resizable(true)
-        .default_width(280.)
-        .width_range(280.0..=1024.0)
-        .frame(Frame {
-            fill: egui::Color32::from_rgba_premultiplied(0, 0, 0, 200),
-            ..Default::default()
-        })
+        .default_width(250.)
+        .width_range(250.0..=1024.0)
+        .frame(frame)
         .show(ctx, |ui| {
             ui.add_space(18.0);
             ui.horizontal(|ui| {
                 ui.add_space(18.0);
                 let button_text = RichText::new("\u{e609}")
-                    .font(FontId::new(18.0, FontFamily::default()))
+                    .font(theme.fonts.icon.clone())
                     .color(if ui_state.show_siderbar {
-                        Color32::WHITE
+                        theme.text_styles.sidebar_button.selected_color
                     } else {
-                        Color32::GRAY
+                        theme.text_styles.sidebar_button.color
                     });
 
                 let btn_response = ui.add(egui::Button::new(button_text).frame(false));
@@ -49,21 +56,23 @@ pub fn left_chat_list_ui(
                         "展开侧栏"
                     });
 
-                if btn_response.clone().clicked() {
+                if btn_response.clicked() {
                     ui_state.show_siderbar = !ui_state.show_siderbar;
                 }
 
                 ui.add_space(ui.available_width() - 45.0);
 
+                // 标题
                 ui.heading(
                     RichText::new("消息")
-                        .font(FontId::new(16.0, FontFamily::default()))
+                        .font(theme.fonts.title.clone())
+                        .color(theme.text_styles.title.color)
                         .strong(),
                 );
             });
 
             let mut view = ChatListView::new(&mut controller);
-            match view.render(ui) {
+            match view.render(ui, theme) {
                 ChatEvent::Selected { id } => {
                     if let Some(_chat) = chats.iter().find(|c| c.id == id) {
                         ui_state.select_chat_id = id.clone();
@@ -74,7 +83,6 @@ pub fn left_chat_list_ui(
                             .cloned()
                             .collect::<Vec<_>>();
                         ui_state.messages = chat_messages;
-
                         // 标记消息为已读
                         if let Some(count) = ui_state.unread_counts.get_mut(&id) {
                             *count = 0;
@@ -83,11 +91,13 @@ pub fn left_chat_list_ui(
                 }
                 ChatEvent::None => {}
             }
+
             if controller.view().filter == ChatFilter::Pinned {
                 ui_state.show_pin_message = true;
             } else {
                 ui_state.show_pin_message = false;
             }
+
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         })
 }
@@ -95,21 +105,26 @@ pub fn left_chat_list_ui(
 pub fn left_sidebar_ui(
     ctx: &egui::Context,
     ui_state: &mut ResMut<UiState>,
+    theme: &NotificationTheme,
 ) -> egui::InnerResponse<()> {
+    let colors = theme.current_colors();
     egui::SidePanel::left("lef_sidebar_ui")
         .resizable(true)
         .max_width(180.)
         .default_width(150.)
         .frame(Frame {
-            fill: egui::Color32::from_rgba_premultiplied(0, 0, 0, 200),
+            fill: colors.background,
+            rounding: theme.style.rounding,
             ..Default::default()
         })
         .show(ctx, |ui| {
             ui.add_space(10.0);
-            ui.style_mut().override_text_style = Some(egui::TextStyle::Body);
-            ui.visuals_mut().override_text_color = Some(egui::Color32::from_rgb(200, 200, 200));
             ui.vertical(|ui| {
-                ui.label("分组");
+                ui.label(
+                    egui::RichText::new("分组")
+                        .font(theme.fonts.title.clone())
+                        .color(theme.text_styles.title.color),
+                );
                 ui.add_space(10.);
                 let menu_items = [
                     ("标记", 2),

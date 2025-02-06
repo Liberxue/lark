@@ -23,9 +23,9 @@ pub fn create_custom_window<'a>(
                     color: egui::Color32::from_black_alpha(60),
                     ..Default::default()
                 })
-                .fill(egui::Color32::from_rgb(32, 33, 36)) // 设置背景色
-                .stroke(egui::Stroke::NONE) // 移除边框
-                .outer_margin(0.0) // 移除外边距
+                .fill(egui::Color32::from_rgb(32, 33, 36))
+                .stroke(egui::Stroke::NONE)
+                .outer_margin(0.0)
                 .inner_margin(8.0),
         )
         .title_bar(false)

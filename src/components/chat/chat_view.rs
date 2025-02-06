@@ -1,14 +1,13 @@
-use std::collections::HashMap;
-
-use bevy::{prelude::ResMut, utils::warn};
+use bevy::prelude::ResMut;
 use bevy_egui::egui::{
     self, popup_below_widget, vec2, Align, Button, Color32, Context, Frame, Id, InnerResponse, Key,
     Label, Layout, Margin, PopupCloseBehavior, Response, RichText, Rounding, ScrollArea, Sense,
     SidePanel, TextEdit, Ui, Vec2,
 };
 use chrono::Local;
+use std::collections::HashMap;
 
-use crate::resources::{ChatTab, UiState};
+use crate::resources::{ChatTab, NotificationTheme, UiState};
 
 use super::{
     Chat, ChatMainStyle, ChatMessage, ChatType, CodeMessageRenderer, EmojiMessageRenderer,
@@ -17,9 +16,9 @@ use super::{
 };
 
 pub struct ChatMainView {
-    style: ChatMainStyle,
-    message_renderers: HashMap<MessageType, Box<dyn MessageRenderer>>,
-    toolbar_buttons: Vec<ToolBarButton>,
+    pub style: ChatMainStyle,
+    pub message_renderers: HashMap<MessageType, Box<dyn MessageRenderer>>,
+    pub toolbar_buttons: Vec<ToolBarButton>,
 }
 impl ChatMainView {
     pub fn new() -> Self {
@@ -47,7 +46,7 @@ impl ChatMainView {
         //  );
         let toolbar_buttons = vec![
             ToolBarButton {
-                icon: "\u{e601}",
+                icon: "\u{e6a2}",
                 tooltip: "表情",
                 action: ToolbarAction::ToggleEmoji,
             },
@@ -57,7 +56,7 @@ impl ChatMainView {
                 action: ToolbarAction::None,
             },
             ToolBarButton {
-                icon: "\u{e600}",
+                icon: "\u{e6a3}",
                 tooltip: "附件",
                 action: ToolbarAction::SetMessageType(MessageType::File),
             },
@@ -78,38 +77,49 @@ impl ChatMainView {
             toolbar_buttons,
         }
     }
-    fn create_frame(&self, ctx: &Context) -> Frame {
+    fn create_frame(&self, ctx: &Context, theme: &NotificationTheme) -> Frame {
+        let colors = theme.current_colors();
         Frame {
-            rounding: self.style.rounding.clone(),
-            inner_margin: self.style.margin.clone(),
+            rounding: theme.style.rounding,
+            inner_margin: theme.style.margin,
             shadow: ctx.style().visuals.window_shadow,
-            fill: self.style.colors.background,
+            fill: colors.background,
             ..Default::default()
         }
     }
-    pub fn render(&self, ctx: &Context, ui_state: &mut ResMut<UiState>) -> InnerResponse<()> {
-        SidePanel::left("chat_main_ui")
-            .frame(self.create_frame(ctx))
+    pub fn render(
+        &self,
+        ctx: &Context,
+        ui_state: &mut ResMut<UiState>,
+        theme: &mut ResMut<NotificationTheme>,
+    ) -> InnerResponse<()> {
+        SidePanel::left("chat_view_ui")
+            .frame(self.create_frame(ctx, &theme))
             .resizable(false)
-            .default_width(1000.0)
-            //.width_range(1000.0..=1280.0)
             .min_width(600.)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
-                    self.render_header(ui, ui_state);
+                    self.render_header(ui, ui_state, &theme);
                     ui.separator();
                     Frame::none().show(ui, |ui| match ui_state.current_tab {
-                        ChatTab::Message => self.render_message_content(ui, ui_state),
-                        ChatTab::Document => self.render_document_content(ui, ui_state),
-                        ChatTab::Announcement => self.render_announcement_content(ui, ui_state),
-                        ChatTab::Pin => self.render_pin_content(ui, ui_state),
-                        ChatTab::File => self.render_file_content(ui, ui_state),
+                        ChatTab::Message => self.render_message_content(ui, ui_state, theme),
+                        ChatTab::Document => self.render_document_content(ui, ui_state, theme),
+                        ChatTab::Announcement => {
+                            self.render_announcement_content(ui, ui_state, theme)
+                        }
+                        ChatTab::Pin => self.render_pin_content(ui, ui_state, theme),
+                        ChatTab::File => self.render_file_content(ui, ui_state, theme),
                         _ => {}
                     });
                 });
             })
     }
-    fn render_header(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+    fn render_header(
+        &self,
+        ui: &mut Ui,
+        ui_state: &mut ResMut<UiState>,
+        theme: &NotificationTheme,
+    ) {
         let _current_tab = ui_state.current_tab.clone();
         if let Some(chat) = ui_state
             .chats
@@ -119,23 +129,30 @@ impl ChatMainView {
             let chat = chat.clone();
 
             ui.horizontal(|ui| {
-                ui.set_height(14.0);
-                self.render_left_section(ui, &chat, ui_state);
+                // ui.set_height(12.0);
+                self.render_left_section(ui, &chat, ui_state, &theme);
                 self.render_right_toolbar(ui, ui_state);
             });
         }
     }
-    fn render_left_section(&self, ui: &mut Ui, chat: &Chat, ui_state: &mut ResMut<UiState>) {
+    fn render_left_section(
+        &self,
+        ui: &mut Ui,
+        chat: &Chat,
+        ui_state: &mut ResMut<UiState>,
+        theme: &NotificationTheme,
+    ) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.add_space(10.0);
-                self.render_avatar(ui, chat);
+                self.render_avatar(ui, chat, &theme);
                 ui.add_space(1.);
-                self.render_chat_info(ui, chat, ui_state);
+                self.render_chat_info(ui, chat, ui_state, &theme);
             });
         });
     }
-    fn render_avatar(&self, ui: &mut Ui, chat: &Chat) {
+
+    fn render_avatar(&self, ui: &mut Ui, chat: &Chat, theme: &NotificationTheme) {
         ui.add(
             Button::new(RichText::new(&chat.avatar).color(Color32::WHITE).strong())
                 .rounding(25.)
@@ -143,54 +160,94 @@ impl ChatMainView {
                 .min_size(Vec2::new(40., 40.)),
         );
     }
-    fn render_chat_info(&self, ui: &mut Ui, chat: &Chat, ui_state: &mut ResMut<UiState>) {
+
+    fn render_chat_info(
+        &self,
+        ui: &mut Ui,
+        chat: &Chat,
+        ui_state: &mut ResMut<UiState>,
+        theme: &NotificationTheme,
+    ) {
         ui.vertical(|ui| {
-            self.render_chat_header(ui, chat);
-            ui.add_space(5.);
-            self.render_tabs(ui, ui_state);
+            self.render_chat_header(ui, chat, theme);
+            ui.add_space(8.);
+            self.render_tabs(ui, ui_state, theme);
         });
     }
-    fn render_chat_header(&self, ui: &mut Ui, chat: &Chat) {
+    fn render_chat_header(&self, ui: &mut Ui, chat: &Chat, theme: &NotificationTheme) {
         ui.horizontal(|ui| {
             ui.heading(
                 RichText::new(&chat.name)
                     .strong()
-                    .font(self.style.fonts.title.clone()),
+                    .font(theme.fonts.title.clone())
+                    .color(theme.text_styles.chat_title.color),
             );
-            self.render_chat_type_indicator(ui, chat);
+            self.render_chat_type_indicator(ui, chat, theme);
         });
     }
-    fn render_chat_type_indicator(&self, ui: &mut Ui, chat: &Chat) {
+    fn render_chat_type_indicator(&self, ui: &mut Ui, chat: &Chat, theme: &NotificationTheme) {
         match chat.chat_type {
             ChatType::Group => {
                 ui.add_space(5.);
-                ui.small("\u{e748}");
-                ui.label(RichText::new(format!("{}", &chat.member_count)).size(12.));
+                ui.small(
+                    RichText::new("\u{e748}")
+                        .size(14.)
+                        .color(theme.text_styles.chat_title.color),
+                );
+                ui.label(
+                    RichText::new(format!("{}", &chat.member_count))
+                        .size(12.)
+                        .color(theme.text_styles.chat_title.color),
+                );
             }
             ChatType::Bot => {
                 ui.add_space(5.);
-                ui.small("\u{e8bb}");
+                ui.small(
+                    RichText::new("\u{e8bb}")
+                        .size(14.)
+                        .color(theme.text_styles.chat_title.color),
+                );
             }
             _ => {}
         }
     }
-    fn render_tabs(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+
+    fn render_tabs(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>, theme: &NotificationTheme) {
         let current_tab = ui_state.current_tab.clone();
         ui.horizontal(|ui| {
-            self.render_tab_button(ui, current_tab, ui_state);
-            self.render_add_tab_button(ui);
+            self.render_tab_button(ui, current_tab, ui_state, theme);
+            self.render_add_tab_button(ui, theme);
         });
     }
-    fn render_add_tab_button(&self, ui: &mut Ui) {
-        let add_btn = Button::new("➕").frame(false).fill(Color32::TRANSPARENT);
+
+    fn render_add_tab_button(&self, ui: &mut Ui, theme: &NotificationTheme) {
+        let text = RichText::new("➕").color(theme.text_styles.chat_message.color);
+        let add_btn = Button::new(text).frame(false).fill(Color32::TRANSPARENT);
         let add_btn_response = ui.add(add_btn);
         let popup_id = ui.make_persistent_id("add_tab_menu");
         if add_btn_response.clicked() {
-            ui.memory_mut(|mem| mem.toggle_popup(popup_id))
+            ui.memory_mut(|mem| mem.toggle_popup(popup_id));
         }
+
+        self.render_add_tab_button_popup(ui, popup_id, &add_btn_response, theme);
     }
-    fn render_add_tab_button_popup(&self, ui: &mut Ui, popup_id: Id, add_btn_response: &Response) {
-        let mut shound_close = false;
+
+    fn render_add_tab_button_popup(
+        &self,
+        ui: &mut Ui,
+        popup_id: Id,
+        add_btn_response: &Response,
+        theme: &NotificationTheme,
+    ) {
+        let colors = theme.current_colors();
+        let mut visuals = ui.style().visuals.clone();
+        visuals.window_fill = colors.background;
+        visuals.window_stroke = egui::Stroke::new(1.0, colors.border);
+        visuals.widgets.inactive.weak_bg_fill = colors.background;
+        visuals.widgets.hovered.weak_bg_fill = colors.hover;
+        visuals.widgets.active.weak_bg_fill = colors.selected;
+        ui.ctx().set_visuals(visuals);
+        let mut should_close = false;
         popup_below_widget(
             ui,
             popup_id,
@@ -199,22 +256,39 @@ impl ChatMainView {
             |ui| {
                 ui.set_min_width(80.);
                 ui.style_mut().wrap = Some(false);
-                if ui.button("添加标签").clicked() {
-                    shound_close = true;
+
+                let text_style = theme.text_styles.chat_message.clone();
+                let font = theme.fonts.content.clone();
+
+                let add_text = RichText::new("添加标签")
+                    .font(font.clone())
+                    .color(text_style.color);
+
+                let manage_text = RichText::new("管理标签").font(font).color(text_style.color);
+
+                if ui.button(add_text).clicked() {
+                    should_close = true;
                 }
-                if ui.button("管理标签").clicked() {
-                    shound_close = true;
+                if ui.button(manage_text).clicked() {
+                    should_close = true;
                 }
             },
         );
-        if shound_close {
+
+        if should_close {
             ui.memory_mut(|mem| mem.close_popup());
         }
     }
-    fn render_tab_button(&self, ui: &mut Ui, current_tab: ChatTab, ui_state: &mut ResMut<UiState>) {
+    fn render_tab_button(
+        &self,
+        ui: &mut Ui,
+        current_tab: ChatTab,
+        ui_state: &mut ResMut<UiState>,
+        theme: &NotificationTheme,
+    ) {
         let tabs = vec![
             (ChatTab::Message, "\u{ebb4} 消息"),
-            (ChatTab::Document, "\u{e630} 云文档"),
+            (ChatTab::Document, "\u{ebb5} 云文档"),
             (ChatTab::Announcement, "\u{e69a} 群公告"),
             (ChatTab::Pin, "\u{e9f2} Pin"),
             (ChatTab::File, "\u{e6fc} 文件"),
@@ -222,12 +296,11 @@ impl ChatMainView {
 
         ui.horizontal(|ui| {
             for (tab, label) in tabs {
-                self.render_single_tab(ui, tab, label, current_tab.clone(), ui_state);
                 ui.add_space(5.);
+                self.render_single_tab(ui, tab, label, current_tab.clone(), ui_state, theme);
             }
         });
     }
-
     fn render_single_tab(
         &self,
         ui: &mut Ui,
@@ -235,12 +308,24 @@ impl ChatMainView {
         label: &str,
         current_tab: ChatTab,
         ui_state: &mut ResMut<UiState>,
+        theme: &NotificationTheme,
     ) {
+        let colors = theme.current_colors();
         let is_selected = current_tab == tab;
-        let btn = Button::new(RichText::new(label).size(12.))
+
+        let text = RichText::new(label)
+            .size(12.)
+            .font(theme.fonts.content.clone())
+            .color(if is_selected {
+                theme.text_styles.chat_title.selected_color
+            } else {
+                theme.text_styles.chat_title.color
+            });
+
+        let btn = Button::new(text)
             .frame(false)
             .fill(if is_selected {
-                Color32::from_rgb(0x35, 0x44, 0x66)
+                colors.selected_background
             } else {
                 Color32::TRANSPARENT
             })
@@ -258,13 +343,12 @@ impl ChatMainView {
         });
     }
 
-    fn render_message_content(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
-        self.render_messages(ui, ui_state);
-        ui.separator();
-        self.render_input_area(ui, ui_state);
-    }
-
-    fn render_document_content(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+    fn render_document_content(
+        &self,
+        ui: &mut Ui,
+        ui_state: &mut ResMut<UiState>,
+        theme: &mut ResMut<NotificationTheme>,
+    ) {
         ui.vertical(|ui| {
             ui.add_space(10.);
             ui.horizontal(|ui| {
@@ -296,7 +380,12 @@ impl ChatMainView {
         });
     }
 
-    fn render_announcement_content(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+    fn render_announcement_content(
+        &self,
+        ui: &mut Ui,
+        ui_state: &mut ResMut<UiState>,
+        theme: &mut ResMut<NotificationTheme>,
+    ) {
         ui.add_space(10.);
         ui.heading("群公告");
         ui.add_space(8.0);
@@ -306,13 +395,23 @@ impl ChatMainView {
         }
     }
 
-    fn render_pin_content(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+    fn render_pin_content(
+        &self,
+        ui: &mut Ui,
+        ui_state: &mut ResMut<UiState>,
+        theme: &mut ResMut<NotificationTheme>,
+    ) {
         ui.add_space(10.);
         ui.heading("置顶消息");
         ui.add_space(8.0);
     }
 
-    fn render_file_content(&self, ui: &mut Ui, ui_state: &mut ResMut<UiState>) {
+    fn render_file_content(
+        &self,
+        ui: &mut Ui,
+        ui_state: &mut ResMut<UiState>,
+        theme: &mut ResMut<NotificationTheme>,
+    ) {
         ui.vertical(|ui| {
             ui.add_space(10.);
             ui.horizontal(|ui| {
@@ -380,7 +479,7 @@ impl ChatMainView {
             ("\u{e71a}", "搜索会话记录"),
             ("\u{e662}", "视频会议"),
             ("\u{e777}", "添加新成员"),
-            ("\u{ebb5}", "日历"),
+            ("\u{eb2b}", "日历"),
             ("\u{e748}", "群成员"),
         ] {
             let btn = ui.add(Button::new(icon).frame(false));
@@ -392,223 +491,7 @@ impl ChatMainView {
             ui.add_space(5.);
         }
     }
-
-    fn render_messages(&self, ui: &mut Ui, ui_state: &mut UiState) {
-        let available_height = ui.available_height();
-        let chat_area_height = available_height - 100.;
-
-        let mut last_date: Option<String> = None;
-        let mut last_sender: Option<(String, String)> = None;
-
-        ScrollArea::vertical()
-            .auto_shrink([false; 2])
-            .stick_to_bottom(true)
-            .max_height(chat_area_height)
-            .show(ui, |ui| {
-                for (idx, message) in ui_state.messages.iter().enumerate() {
-                    let date = message
-                        .timestamp
-                        .split(' ')
-                        .next()
-                        .unwrap_or("")
-                        .to_string();
-
-                    if last_date.as_ref().map_or(true, |last| last != &date) {
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(5.0);
-                            ui.add(Label::new(
-                                RichText::new(&date).color(Color32::GRAY).size(12.0),
-                            ));
-                            ui.add_space(5.0);
-                        });
-                        last_date = Some(date);
-                    }
-
-                    let minute = message
-                        .timestamp
-                        .split(' ')
-                        .nth(1)
-                        .and_then(|t| t.rsplitn(2, ':').last())
-                        .unwrap_or("")
-                        .to_string();
-
-                    let show_avatar = last_sender.as_ref().map_or(true, |(sender, min)| {
-                        &message.sender != sender || &minute != min
-                    });
-
-                    if show_avatar {
-                        last_sender = Some((message.sender.clone(), minute.clone()));
-                    }
-
-                    self.render_message(ui, message, show_avatar);
-                }
-            });
-    }
-
-    fn render_message(&self, ui: &mut Ui, message: &ChatMessage, show_avatar: bool) {
-        let parts: Vec<&str> = message.timestamp.split(' ').collect();
-        let (date, time) = if parts.len() == 2 {
-            (parts[0], parts[1])
-        } else {
-            (message.timestamp.as_str(), "xxx")
-        };
-
-        Frame::none().show(ui, |ui| {
-            let response =
-                ui.allocate_response(Vec2::new(ui.available_width(), 10.0), Sense::hover());
-            let is_hovered = response.hovered();
-
-            ui.horizontal(|ui| {
-                ui.horizontal(|ui| {
-                    if show_avatar {
-                        ui.add_space(25.0);
-                        ui.add(
-                            Button::new(
-                                RichText::new(&message.avatar)
-                                    .color(Color32::WHITE)
-                                    .strong(),
-                            )
-                            .rounding(35.0)
-                            .fill(self.get_avatar_color(&message.avatar))
-                            .min_size(Vec2::new(35.0, 35.0)),
-                        );
-                    } else {
-                        ui.add_space(5.0);
-                        ui.add(
-                            Button::new(
-                                RichText::new(time)
-                                    .color(if is_hovered && !show_avatar {
-                                        Color32::GRAY
-                                    } else {
-                                        Color32::TRANSPARENT
-                                    })
-                                    .size(13.)
-                                    .strong(),
-                            )
-                            .fill(Color32::TRANSPARENT),
-                        );
-                    }
-                });
-
-                ui.vertical(|ui| {
-                    if show_avatar {
-                        ui.horizontal(|ui| {
-                            ui.label(RichText::new(&message.sender).strong());
-                            if is_hovered {
-                                let display_time = format!(
-                                    "{} {}",
-                                    date.split('.').skip(1).collect::<Vec<_>>().join("."),
-                                    time
-                                );
-                                ui.label(
-                                    RichText::new(&display_time).color(Color32::GRAY).size(13.),
-                                );
-                            }
-                        });
-                    }
-
-                    Frame::none()
-                        .fill(Color32::from_rgb(0x24, 0x24, 0x24))
-                        .rounding(Rounding::same(8.0))
-                        .inner_margin(Margin::same(8.0))
-                        .show(ui, |ui| {
-                            ui.with_layout(
-                                egui::Layout::left_to_right(egui::Align::LEFT).with_main_wrap(true),
-                                |ui| {
-                                    if let Some(renderer) =
-                                        self.message_renderers.get(&message.message_type)
-                                    {
-                                        renderer.render(ui, message, &self.style);
-                                    }
-                                },
-                            );
-                        });
-                });
-            });
-        });
-    }
-    fn render_input_area(&self, ui: &mut Ui, ui_state: &mut UiState) {
-        Frame::none().outer_margin(vec2(1.0, 1.0)).show(ui, |ui| {
-            ui.vertical(|ui| {
-                self.render_toolbar(ui, ui_state);
-                if ui_state.show_emoji_picker {
-                    // TODO: Implement emoji picker
-                }
-                self.render_input(ui, ui_state);
-            });
-        });
-    }
-
-    fn render_toolbar(&self, ui: &mut Ui, ui_state: &mut UiState) {
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 8.0;
-            for button in &self.toolbar_buttons {
-                let btn = ui.add(
-                    Button::new(button.icon)
-                        .frame(false)
-                        .min_size(vec2(24.0, 24.0)),
-                );
-                if btn.clicked() {
-                    match &button.action {
-                        ToolbarAction::ToggleEmoji => {
-                            ui_state.show_emoji_picker = !ui_state.show_emoji_picker;
-                        }
-                        ToolbarAction::SetMessageType(msg_type) => {
-                            ui_state.current_message_type = msg_type.clone();
-                        }
-                        ToolbarAction::None => {}
-                    }
-                }
-                if btn.hovered() {
-                    btn.on_hover_ui(|ui| {
-                        ui.label(button.tooltip);
-                    });
-                }
-            }
-        });
-    }
-
-    fn render_input(&self, ui: &mut Ui, ui_state: &mut UiState) {
-        let frame = Frame::none()
-            .outer_margin(vec2(4.0, 4.0))
-            .inner_margin(vec2(4.0, 4.0));
-        frame.show(ui, |ui| {
-            let text_edit = TextEdit::multiline(&mut ui_state.input_text)
-                .desired_width(ui.available_width())
-                .desired_rows(1)
-                .min_size(vec2(0.0, 30.0))
-                .hint_text("输入消息...");
-
-            let _response = ui.add(text_edit);
-            let enter_pressed = ui.input(|i| i.key_pressed(Key::Enter) && !i.modifiers.shift);
-
-            if enter_pressed && !ui_state.input_text.is_empty() {
-                self.send_message(ui_state);
-            }
-        });
-    }
-
-    fn send_message(&self, ui_state: &mut UiState) {
-        let now = Local::now().format("%Y.%m.%d %H:%M:%S").to_string();
-
-        let trimmed_text = ui_state.input_text.trim().to_string();
-
-        if !trimmed_text.is_empty() {
-            ui_state.messages.push(ChatMessage {
-                id: format!("msg_{}", now),
-                is_bot: false,
-                chat_id: ui_state.select_chat_id.clone(),
-                sender: "You".to_string(),
-                avatar: "Y".to_string(),
-                content: trimmed_text,
-                timestamp: now,
-                message_type: ui_state.current_message_type.clone(),
-                reactions: Vec::new(),
-            });
-        }
-        ui_state.input_text.clear();
-    }
-    fn get_avatar_color(&self, text: &str) -> Color32 {
+    pub fn get_avatar_color(&self, text: &str) -> Color32 {
         let index = text
             .bytes()
             .fold(0usize, |acc, b| acc.wrapping_add(b as usize))

@@ -1,5 +1,8 @@
-use super::chat_model::{ChatColors, ChatFonts, ChatMainStyle};
-use bevy_egui::egui::{self, Color32, FontFamily, FontId, Margin, Rounding};
+use super::{
+    chat_model::{ChatColors, ChatFonts, ChatMainStyle},
+    AVATAR_COLORS,
+};
+use bevy_egui::egui::{self, FontFamily, FontId, Margin, Rounding};
 impl Default for ChatMainStyle {
     fn default() -> Self {
         Self {
@@ -26,18 +29,7 @@ impl Default for ChatColors {
         Self {
             background: egui::Color32::from_rgba_premultiplied(0, 0, 0, 200),
             text: egui::Color32::from_rgb(255, 255, 255),
-            avatar_colors: vec![
-                Color32::from_rgb(103, 58, 183), // Deep Purple
-                Color32::from_rgb(63, 81, 181),  // Indigo
-                Color32::from_rgb(33, 150, 243), // Blue
-                Color32::from_rgb(3, 169, 244),  // Light Blue
-                Color32::from_rgb(0, 188, 212),  // Cyan
-                Color32::from_rgb(0, 150, 136),  // Teal
-                Color32::from_rgb(76, 175, 80),  // Green
-                Color32::from_rgb(244, 67, 54),  // Red
-                Color32::from_rgb(233, 30, 99),  // Pink
-                Color32::from_rgb(156, 39, 176), // Purple
-            ],
+            avatar_colors: AVATAR_COLORS.to_vec(),
         }
     }
 }

@@ -29,6 +29,7 @@ pub struct UiState {
     pub show_siderbar: bool,
     pub selected_siderbar_button: String,
     pub current_tab: ChatTab,
+    pub search_text: String,
 
     //chat main ui
     pub current_message_type: MessageType,
@@ -45,13 +46,11 @@ pub struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
-        // 获取默认聊天室数据
         let chat_data = ChatData::create_default_chat_rooms();
         let mut chats = Vec::new();
         let mut messages = Vec::new();
         let mut unread_counts = HashMap::new();
 
-        // 从聊天室数据中提取需要的信息
         for (_, room_data) in chat_data.iter() {
             chats.push(room_data.chat.clone());
             messages.extend(room_data.messages.clone());
@@ -66,15 +65,16 @@ impl Default for UiState {
             show_siderbar: false,
             select_chat_id: "1".to_string(),
             current_tab: ChatTab::Message,
+            search_text: "搜索联系/文档".to_string(),
             selected_siderbar_button: String::new(),
             current_message_type: MessageType::Text,
             input_text: String::new(),
             show_emoji_picker: false,
             show_pin_message: false,
-            messages, // 使用从聊天室数据中获取的消息
-            chats,    // 使用从聊天室数据中获取的聊天列表
+            messages,
+            chats,
             notifications: vec![],
-            unread_counts, // 使用从聊天室数据中获取的未读计数
+            unread_counts,
         }
     }
 }
@@ -88,7 +88,7 @@ impl UiState {
             .unwrap_or_default()
     }
 }
-// 定义导航页面枚举
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum NavPage {
     Message,
@@ -255,7 +255,7 @@ impl ChatData {
     pub fn get_messages_for_chat(&self, chat_id: &str) -> Vec<ChatMessage> {
         self.messages
             .iter()
-            .filter(|msg| msg.chat_id == chat_id) // 需要在 ChatMessage 中添加 chat_id 字段
+            .filter(|msg| msg.chat_id == chat_id)
             .cloned()
             .collect()
     }
@@ -267,7 +267,6 @@ impl ChatData {
         }
     }
 
-    // 标记消息为已读
     pub fn mark_as_read(&mut self, chat_id: &str) {
         if let Some(count) = self.unread_counts.get_mut(chat_id) {
             *count = 0;
@@ -287,5 +286,7 @@ impl Default for ChatData {
 }
 
 mod setup;
+mod theme;
 
 pub use setup::*;
+pub use theme::*;
